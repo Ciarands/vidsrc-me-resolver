@@ -7,7 +7,7 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 class VidSrcExtractor:
-    def hunter_duf(self, d, e, f):
+    def hunter_duf(self, d, e, f) -> int:
         '''Used by self.hunter'''
         g = list("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/")
         h = g[0:e]
@@ -25,7 +25,7 @@ class VidSrcExtractor:
     
         return int(k) or 0
     
-    def hunter(self, h, u, n, t, e, r):
+    def hunter(self, h, u, n, t, e, r) -> str:
         '''Decodes the common h,u,n,t,e,r packer'''
         r = ""
         i = 0
@@ -126,8 +126,10 @@ class VidSrcExtractor:
                 return self.handle_multiembed(location, f"https://rcp.vidsrc.me/rcp/{source}")
 
 if __name__ == "__main__":
+    tmdb = input("Input imdb code: ")
+
     # use VidSrc PRO, it has virtually everything and is super fast
     vse = VidSrcExtractor()
-    movie = vse.get_vidsrc_stream("VidSrc PRO", "https://vidsrc.me/embed/tt1535109")
+    movie = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/{tmdb}")
     if movie:
         os.system(f"mpv --fs {movie}")
