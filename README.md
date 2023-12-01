@@ -1,4 +1,4 @@
-# vidsrc-extractor
+# vidsrc-me-resolver
 Resolves m3u8 url from common sources used by https://vidsrc.me/
 
 ### Supports
