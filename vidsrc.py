@@ -7,7 +7,7 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 class VidSrcExtractor:
-    def hunter_duf(self, d, e, f) -> int:
+    def hunter_def(self, d, e, f) -> int:
         '''Used by self.hunter'''
         g = list("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ+/")
         h = g[0:e]
@@ -52,6 +52,12 @@ class VidSrcExtractor:
         for i in range(len(encoded_buffer)):
             decoded += chr(encoded_buffer[i] ^ ord(seed[i % len(seed)]))
         return decoded
+    
+    def decode_base64_url_safe(self, s) -> bytearray:
+        standardized_input = s.replace('_', '/').replace('-', '+')
+        binary_data = base64.b64decode(standardized_input)
+
+        return bytearray(binary_data)
 
     def handle_vidsrc_stream(self, url, source) -> str:
         '''Main vidsrc, get urls from here its fast'''
@@ -59,7 +65,11 @@ class VidSrcExtractor:
 
         hls_url = re.search(r'file:"([^"]*)"', req.text).group(1)
         hls_url = re.sub(r'\/\/\S+?=', '', hls_url).replace('#2', '')
-        hls_url = base64.b64decode(hls_url).decode('utf-8')
+
+        try:
+            hls_url = base64.b64decode(hls_url).decode('utf-8') # this randomly breaks and doesnt decode properly, will fix later, works most of the time anyway, just re-run
+        except Exception: 
+            return self.handle_vidsrc_stream(url, source)
 
         set_pass = re.search(r'var pass_path = "(.*?)";', req.text).group(1)
         if set_pass.startswith("//"):
@@ -69,7 +79,7 @@ class VidSrcExtractor:
         return hls_url
     
     def handle_2embed(self, url, source) -> str:
-        '''Site provides ssl error :( cannot fetch from here'''
+        '''Site provides ssl error :( cannot fetch from here''' # this site works now, ill reverse in future
         pass
 
     def handle_multiembed(self, url, source) -> str:
@@ -79,7 +89,9 @@ class VidSrcExtractor:
         processed_values = []
 
         if not matches:
-            raise Exception("No values found")
+            print("[Error] Failed to fetch multiembed, this is likely because of a captcha, try accessing the source below directly and solving the captcha before re-trying.")
+            print(url)
+            return
 
         for val in matches.group(1).split(','):
             val = val.strip()
@@ -116,20 +128,20 @@ class VidSrcExtractor:
         req_2 = requests.get(decoded_url, allow_redirects=False, headers={"Referer": f"https://rcp.vidsrc.me/rcp/{source}"})
         location = req_2.headers.get("Location")
 
-        match location.split("/"): # i wanted to test out sequence patterns :) TODO: find and add other sources such as playhydrax.com
-            case [_, _, "vidsrc.stream", *_]: 
-                return self.handle_vidsrc_stream(location, f"https://rcp.vidsrc.me/rcp/{source}")
-            case [_, _, "2embed.cc", *_]:
-                print("[Warning] 2Embed does not work, this will not return anything!")
-                return self.handle_2embed(location, f"https://rcp.vidsrc.me/rcp/{source}")
-            case [_, _, "multiembed.mov", *_]:
-                return self.handle_multiembed(location, f"https://rcp.vidsrc.me/rcp/{source}")
+        # TODO: find and add other sources such as playhydrax.com
+        if "vidsrc.stream" in location:
+            return self.handle_vidsrc_stream(location, f"https://rcp.vidsrc.me/rcp/{source}")
+        if "2embed.cc" in location:
+            print("[Warning] 2Embed does not work, this will not return anything!")
+            return self.handle_2embed(location, f"https://rcp.vidsrc.me/rcp/{source}")
+        if "multiembed.mov" in location:
+            return self.handle_multiembed(location, f"https://rcp.vidsrc.me/rcp/{source}")
 
 if __name__ == "__main__":
-    tmdb = input("Input imdb code: ")
+    imdb = input("Input imdb code: ") # e.g. tt0111161 -> https://www.imdb.com/title/tt0111161/
 
     # use VidSrc PRO, it has virtually everything and is super fast
     vse = VidSrcExtractor()
-    movie = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/{tmdb}")
+    movie = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/{imdb}") # url format for tv = /embed/{imdb_code}/{season_int}/{episode_int}
     if movie:
         os.system(f"mpv --fs {movie}")
