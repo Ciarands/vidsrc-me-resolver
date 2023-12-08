@@ -138,10 +138,28 @@ class VidSrcExtractor:
             return self.handle_multiembed(location, f"https://rcp.vidsrc.me/rcp/{source}")
 
 if __name__ == "__main__":
-    imdb = input("Input imdb code: ") # e.g. tt0111161 -> https://www.imdb.com/title/tt0111161/
-
-    # use VidSrc PRO, it has virtually everything and is super fast
     vse = VidSrcExtractor()
-    movie = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/{imdb}") # url format for tv = /embed/{imdb_code}/{season_int}/{episode_int}
-    if movie:
-        os.system(f"mpv --fs {movie}")
+
+    def movie():
+        movie = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/movie?{provider}={code}") 
+        if movie:
+            os.system(f"mpv --fs {movie}")
+
+    def tv():
+        season = input("Season No: ")
+        episode = input("Episode No: ")
+        tv = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/tv?{provider}={code}&season={season}&episode={episode}") 
+        if tv:
+            os.system(f"mpv --fs {tv}")
+
+
+    movie_show = input("Movie [0] / Show [1]: ")
+    code = input("Input imdb/tmdb code: ")
+    provider = "imdb" if ("tt" in code) else "tmdb"
+
+    if(movie_show == "0"):
+        movie()
+    else:
+        tv()
+
+
