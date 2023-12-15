@@ -42,7 +42,7 @@ class VidSrcExtractor:
                 s = s.replace(n[j],str(j))
                 j = j + 1
     
-            r = ''.join([r,''.join(map(chr, [self.hunter_duf(s,e,10) - t]))])
+            r = ''.join([r,''.join(map(chr, [self.hunter_def(s,e,10) - t]))])
             i = i + 1
     
         return r
