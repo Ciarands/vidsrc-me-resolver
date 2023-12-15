@@ -1,8 +1,10 @@
 import os
 import re
+import gzip
 import base64
 import requests
 
+from io import BytesIO
 from typing import Optional
 from bs4 import BeautifulSoup
 
@@ -91,7 +93,7 @@ class VidSrcExtractor:
         if not matches:
             print("[Error] Failed to fetch multiembed, this is likely because of a captcha, try accessing the source below directly and solving the captcha before re-trying.")
             print(url)
-            return
+            return None
 
         for val in matches.group(1).split(','):
             val = val.strip()
@@ -103,8 +105,36 @@ class VidSrcExtractor:
         unpacked = self.hunter(*processed_values)
         hls_url = re.search(r'file:"([^"]*)"', unpacked).group(1)
         return hls_url
+    
+    def fetch_best_subtitle_url(self, code, language) -> Optional[str]:
+        '''This site uses opensubs for fetching subtitles, this is doing the same, fetches the highest score subtitle'''
+        if "_" in code:
+            code, season_episode = code.split("_")
+            season, episode = season_episode.split('x')
+            url = f"https://rest.opensubtitles.org/search/episode-{episode}/imdbid-{code}/season-{season}/sublanguageid-{language}"
+        else:
+            url = f"https://rest.opensubtitles.org/search/imdbid-{code}/sublanguageid-{language}"
+        
+        headers = {
+            'authority': 'rest.opensubtitles.org',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.105 Safari/537.36',
+            'x-user-agent': 'trailers.to-UA',
+        }
+        
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            best_subtitle = max(response.json(), key=lambda x: x.get('score', 0), default=None)
+            return best_subtitle.get("SubDownloadLink")
+        
+        return None
 
-    def get_vidsrc_stream(self, name, url) -> Optional[str]:
+    def get_vidsrc_stream(self, name, media_type, code, language, season=None, episode=None) -> Optional[str]:
+        provider = "imdb" if ("tt" in code) else "tmdb"
+        url = f"https://vidsrc.me/embed/{media_type}?{provider}={code}"
+        if season and episode:
+            url += f"&season={season}&episode={episode}"
+
+        print(f"Requesting {url}...")
         req = requests.get(url)
         soup = BeautifulSoup(req.text, "html.parser")
         sources = {attr.text: attr.get("data-hash") for attr in soup.find_all("div", {"class": "server"})}
@@ -112,9 +142,8 @@ class VidSrcExtractor:
         source = sources.get(name)
         if not source:
             print(f"No source found for {name}, available sources:", ", ".join(list(sources.keys())))
-            return None
+            return None, None
 
-        print(f"Requesting {name}...")
         req_1 = requests.get(f"https://rcp.vidsrc.me/rcp/{source}", headers={"Referer": url})
         soup = BeautifulSoup(req_1.text, "html.parser")
 
@@ -127,39 +156,50 @@ class VidSrcExtractor:
 
         req_2 = requests.get(decoded_url, allow_redirects=False, headers={"Referer": f"https://rcp.vidsrc.me/rcp/{source}"})
         location = req_2.headers.get("Location")
+        
+        subtitle = None
+        if language:
+            subtitle = self.fetch_best_subtitle_url(seed, language)
 
-        # TODO: find and add other sources such as playhydrax.com
         if "vidsrc.stream" in location:
-            return self.handle_vidsrc_stream(location, f"https://rcp.vidsrc.me/rcp/{source}")
+            return self.handle_vidsrc_stream(location, f"https://rcp.vidsrc.me/rcp/{source}"), subtitle
         if "2embed.cc" in location:
             print("[Warning] 2Embed does not work, this will not return anything!")
-            return self.handle_2embed(location, f"https://rcp.vidsrc.me/rcp/{source}")
+            return self.handle_2embed(location, f"https://rcp.vidsrc.me/rcp/{source}"), subtitle
         if "multiembed.mov" in location:
-            return self.handle_multiembed(location, f"https://rcp.vidsrc.me/rcp/{source}")
+            return self.handle_multiembed(location, f"https://rcp.vidsrc.me/rcp/{source}"), subtitle
 
 if __name__ == "__main__":
+    def download_and_decompress_subtitles(subtitle_url) -> Optional[str]:
+        response = requests.get(subtitle_url)
+        if response.status_code == 200:
+            with gzip.open(BytesIO(response.content), 'rt', encoding='utf-8') as f:
+                return f.read()
+        
+        return None
+
     vse = VidSrcExtractor()
-
-    def movie():
-        movie = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/movie?{provider}={code}") 
-        if movie:
-            os.system(f"mpv --fs {movie}")
-
-    def tv():
-        season = input("Season No: ")
-        episode = input("Episode No: ")
-        tv = vse.get_vidsrc_stream("VidSrc PRO", f"https://vidsrc.me/embed/tv?{provider}={code}&season={season}&episode={episode}") 
-        if tv:
-            os.system(f"mpv --fs {tv}")
-
-
-    movie_show = input("Movie [0] / Show [1]: ")
+    media_type = "movie" if input("Movie [0] / Show [1]: ") == "0" else "tv"
     code = input("Input imdb/tmdb code: ")
-    provider = "imdb" if ("tt" in code) else "tmdb"
+    season, episode = None, None
+    subtitle_language = "eng"
 
-    if(movie_show == "0"):
-        movie()
+    if media_type == "tv":
+        season = input("Input Season Number: ")
+        episode = input("Input Episode Number: ")
+
+    stream, subtitle_url = vse.get_vidsrc_stream("VidSrc PRO", media_type, code, subtitle_language, season, episode)
+
+    if not stream:
+        exit("Error: No stream available.")
+
+    if subtitle_url:
+        subtitles = download_and_decompress_subtitles(subtitle_url)
+        if subtitles:
+            with open("./subtitles", 'w', encoding='utf-8') as subtitle_file:
+                subtitle_file.write(subtitles)
+            os.system(f"mpv --fs \"{stream}\" --sub-file=\"./subtitles\"")
+        else:
+            print("Error downloading or decompressing subtitles.")
     else:
-        tv()
-
-
+        os.system(f"mpv --fs \"{stream}\"")
