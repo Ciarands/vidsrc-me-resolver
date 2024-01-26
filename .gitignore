@@ -1,1 +1,6 @@
-subtitles
+# Vscode
+.vscode
+.idea
+
+# Pycache
+__pycache__
