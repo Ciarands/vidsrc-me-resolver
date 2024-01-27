@@ -10,7 +10,7 @@ class VidsrcStreamExtractor:
         def format_hls_b64(data: str) -> str:
             encoded_b64 = re.sub(r"\/@#@\/[^=\/]+==", "", data)
             if re.search(r"\/@#@\/[^=\/]+==", encoded_b64):
-                encoded_b64 = format_hls_b64(encoded_b64)
+                return format_hls_b64(encoded_b64)
             return encoded_b64
 
         formatted_b64 = format_hls_b64(encoded_url[2:])
