@@ -90,10 +90,15 @@ class VidsrcMeExtractor:
 
 if __name__ == "__main__":
     default_language = "English"
+    print("Supported sources -")
+    for i, v in enumerate(SUPPORTED_SOURCES, start=1):
+        print(f"{i} - {v}")
+
+    source_index = (int(input("Select Source: ")) - 1) % len(SUPPORTED_SOURCES)
     media_id = input("Input imdb/tmdb code: ")
 
     vse = VidsrcMeExtractor(
-        source_name=SUPPORTED_SOURCES[1],
+        source_name=SUPPORTED_SOURCES[source_index],
         fetch_subtitles=True
     )
 
