@@ -37,5 +37,4 @@ This is purely intended as proof of concept, the distribution of program is inte
 
 ---
 
-### Contact
-discord - `ciaran_ds`
+#### [Join the discord for support](https://discord.gg/z2r8e8neQ7)
