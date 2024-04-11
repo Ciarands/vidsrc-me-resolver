@@ -12,8 +12,8 @@ from sources.vidsrcpro import VidsrcStreamExtractor
 SUPPORTED_SOURCES = ["VidSrc PRO", "Superembed"]
 
 class VidsrcMeExtractor:
-    BASE_URL : str = "https://vidsrc.me" # vidsrc.me / vidsrc.in / vidsrc.pm / vidsrc.xyz / vidsrc.net
-    RCP_URL : str = "https://rcp.vidsrc.me/rcp"
+    BASE_URL = "https://vidsrc.me" # vidsrc.me / vidsrc.in / vidsrc.pm / vidsrc.xyz / vidsrc.net
+    RCP_URL = "https://vidsrc.stream/rcp"
 
     def __init__(self, **kwargs) -> None:
         self.source_name = kwargs.get("source_name")
@@ -113,7 +113,10 @@ if __name__ == "__main__":
         mpv_cmd = f"mpv \"{stream}\" "
         subtitle = stream_data["subtitles"].get(default_language) if stream_data.get("subtitles") else None
         if subtitle: 
-            mpv_cmd += f"--sub-file=\"{subtitle}\""
+            mpv_cmd += f"--sub-file=\"{subtitle}\" "
 
+        if vse.source_name == "VidSrc PRO":
+            mpv_cmd += f"--http-header-fields=\"Referer: {VidsrcMeExtractor.RCP_URL}\" "
+            
         print("[>] Done!")
         os.system(mpv_cmd)
